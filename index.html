@@ -195,13 +195,16 @@ body::after {
 
 .hero-title {
   font-family: 'Orbitron', sans-serif;
-  font-size: clamp(2.5rem, 7vw, 5.5rem);
+  font-size: clamp(1.6rem, 5.5vw, 5.5rem);
   font-weight: 900;
   color: var(--green);
   text-shadow: 0 0 40px var(--green-glow), 0 0 80px rgba(57, 255, 20, 0.15);
-  letter-spacing: 6px;
+  letter-spacing: clamp(2px, 0.5vw, 6px);
   line-height: 1.1;
   margin-bottom: 1rem;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  max-width: 100%;
 }
 
 .hero-title .dollar { color: var(--red); }
@@ -561,7 +564,9 @@ section {
   font-family: 'Share Tech Mono', monospace;
   font-size: 0.85rem;
   line-height: 1.8;
-  min-height: 300px;
+  height: 350px;
+  max-height: 350px;
+  overflow-y: auto;
 }
 
 .terminal-line {
@@ -671,8 +676,10 @@ section {
 .footer-links {
   display: flex;
   justify-content: center;
-  gap: 2rem;
+  gap: 1.5rem;
   margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  padding: 0 1rem;
 }
 
 .footer-links a {
