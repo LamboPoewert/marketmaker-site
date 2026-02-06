@@ -1,0 +1,1100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>$MM — The Marketmaker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --green: #39ff14;
+  --green-dim: #1a8a0a;
+  --green-glow: rgba(57, 255, 20, 0.3);
+  --green-dark: #0a2e05;
+  --bg: #030804;
+  --bg-card: rgba(5, 20, 5, 0.7);
+  --text: #b0ffb0;
+  --text-dim: #4a7a4a;
+  --red: #ff2040;
+  --skull: #c8ffc8;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Rajdhani', sans-serif;
+  overflow-x: hidden;
+  cursor: crosshair;
+}
+
+/* ===== SCANLINE OVERLAY ===== */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 255, 0, 0.015) 2px,
+    rgba(0, 255, 0, 0.015) 4px
+  );
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* ===== NOISE OVERLAY ===== */
+body::after {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 9998;
+  opacity: 0.5;
+}
+
+/* ===== SCROLLBAR ===== */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--green-dim); border-radius: 3px; }
+
+/* ===== HEADER / NAV ===== */
+.nav {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 1000;
+  padding: 1rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(3, 8, 4, 0.9);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(57, 255, 20, 0.1);
+}
+
+.nav-logo {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 900;
+  font-size: 1.4rem;
+  color: var(--green);
+  text-shadow: 0 0 20px var(--green-glow);
+  letter-spacing: 3px;
+}
+
+.nav-logo span { color: var(--red); }
+
+.nav-links { display: flex; gap: 2rem; align-items: center; }
+
+.nav-links a {
+  color: var(--text-dim);
+  text-decoration: none;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.85rem;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  transition: all 0.3s;
+}
+
+.nav-links a:hover { color: var(--green); text-shadow: 0 0 10px var(--green-glow); }
+
+.btn-buy {
+  background: transparent;
+  border: 1px solid var(--green);
+  color: var(--green);
+  padding: 0.5rem 1.5rem;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.85rem;
+  letter-spacing: 2px;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: all 0.3s;
+  text-decoration: none;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-buy::before {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%; width: 100%; height: 100%;
+  background: var(--green);
+  transition: left 0.3s;
+  z-index: -1;
+}
+
+.btn-buy:hover { color: var(--bg); }
+.btn-buy:hover::before { left: 0; }
+
+/* ===== HERO ===== */
+.hero {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  position: relative;
+  padding: 2rem;
+  overflow: hidden;
+}
+
+.hero-bg {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background:
+    radial-gradient(ellipse at 50% 30%, rgba(57, 255, 20, 0.08) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 70%, rgba(57, 255, 20, 0.04) 0%, transparent 40%),
+    radial-gradient(ellipse at 20% 80%, rgba(255, 32, 64, 0.03) 0%, transparent 40%);
+  z-index: 0;
+}
+
+/* Matrix rain canvas */
+#matrix-rain {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 0;
+  opacity: 0.15;
+}
+
+.hero-content {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.hero-image-wrapper {
+  width: min(900px, 90vw);
+  margin: 0 auto 2rem auto;
+  position: relative;
+  border: 1px solid rgba(57, 255, 20, 0.2);
+  box-shadow: 0 0 60px rgba(57, 255, 20, 0.1), inset 0 0 60px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+.hero-image-wrapper img {
+  width: 100%;
+  display: block;
+  filter: brightness(0.9) contrast(1.1);
+}
+
+.hero-image-wrapper::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: linear-gradient(180deg, transparent 60%, var(--bg) 100%);
+}
+
+.hero-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: clamp(2.5rem, 7vw, 5.5rem);
+  font-weight: 900;
+  color: var(--green);
+  text-shadow: 0 0 40px var(--green-glow), 0 0 80px rgba(57, 255, 20, 0.15);
+  letter-spacing: 6px;
+  line-height: 1.1;
+  margin-bottom: 1rem;
+}
+
+.hero-title .dollar { color: var(--red); }
+
+.hero-subtitle {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: clamp(0.9rem, 2vw, 1.2rem);
+  color: var(--text-dim);
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  margin-bottom: 2rem;
+  max-width: 700px;
+}
+
+.hero-ticker {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.8rem;
+  color: var(--green-dim);
+  letter-spacing: 2px;
+  margin-top: 2rem;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+.hero-cta {
+  display: flex;
+  gap: 1.5rem;
+  margin-top: 2rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.btn-primary {
+  background: var(--green);
+  color: var(--bg);
+  border: none;
+  padding: 0.8rem 2.5rem;
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: 3px;
+  cursor: pointer;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: all 0.3s;
+  box-shadow: 0 0 30px rgba(57, 255, 20, 0.3);
+}
+
+.btn-primary:hover {
+  box-shadow: 0 0 50px rgba(57, 255, 20, 0.5);
+  transform: translateY(-2px);
+}
+
+.btn-secondary {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--text-dim);
+  padding: 0.8rem 2.5rem;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.9rem;
+  letter-spacing: 2px;
+  cursor: pointer;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: all 0.3s;
+}
+
+.btn-secondary:hover {
+  border-color: var(--green);
+  color: var(--green);
+}
+
+/* ===== CONTRACT ADDRESS BAR ===== */
+.ca-bar {
+  background: rgba(57, 255, 20, 0.05);
+  border-top: 1px solid rgba(57, 255, 20, 0.1);
+  border-bottom: 1px solid rgba(57, 255, 20, 0.1);
+  padding: 1rem 2rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.ca-label {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  letter-spacing: 3px;
+  text-transform: uppercase;
+}
+
+.ca-address {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.9rem;
+  color: var(--green);
+  background: rgba(0, 0, 0, 0.4);
+  padding: 0.4rem 1rem;
+  border: 1px solid rgba(57, 255, 20, 0.15);
+  cursor: pointer;
+  transition: all 0.3s;
+  user-select: all;
+}
+
+.ca-address:hover {
+  border-color: var(--green);
+  box-shadow: 0 0 15px rgba(57, 255, 20, 0.2);
+}
+
+/* ===== SECTION LAYOUT ===== */
+section {
+  padding: 6rem 2rem;
+  position: relative;
+}
+
+.section-header {
+  text-align: center;
+  margin-bottom: 4rem;
+}
+
+.section-tag {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--green-dim);
+  letter-spacing: 5px;
+  text-transform: uppercase;
+  margin-bottom: 0.5rem;
+}
+
+.section-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: clamp(1.8rem, 4vw, 3rem);
+  font-weight: 900;
+  color: var(--green);
+  text-shadow: 0 0 30px var(--green-glow);
+  letter-spacing: 4px;
+}
+
+/* ===== ABOUT SECTION ===== */
+#about {
+  background:
+    radial-gradient(ellipse at 30% 50%, rgba(57, 255, 20, 0.04) 0%, transparent 50%);
+}
+
+.about-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4rem;
+  max-width: 1200px;
+  margin: 0 auto;
+  align-items: center;
+}
+
+.about-image {
+  position: relative;
+  border: 1px solid rgba(57, 255, 20, 0.15);
+  overflow: hidden;
+  line-height: 0;
+}
+
+.about-image img {
+  width: 100%;
+  display: block;
+  filter: brightness(0.85) contrast(1.1) saturate(1.2);
+  transition: transform 0.6s;
+}
+
+.about-image:hover img { transform: scale(1.03); }
+
+
+
+.about-text h3 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.5rem;
+  color: var(--green);
+  margin-bottom: 1.5rem;
+  letter-spacing: 2px;
+}
+
+.about-text p {
+  font-size: 1.1rem;
+  line-height: 1.8;
+  color: var(--text);
+  margin-bottom: 1.2rem;
+  font-weight: 300;
+}
+
+.about-text .highlight {
+  color: var(--green);
+  font-weight: 600;
+}
+
+/* ===== HOW IT WORKS ===== */
+#mechanism {
+  background:
+    radial-gradient(ellipse at 70% 30%, rgba(57, 255, 20, 0.05) 0%, transparent 50%);
+}
+
+.mechanism-flow {
+  max-width: 1000px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  position: relative;
+}
+
+.mechanism-flow::before {
+  content: '';
+  position: absolute;
+  left: 40px;
+  top: 0; bottom: 0;
+  width: 1px;
+  background: linear-gradient(180deg, transparent, var(--green-dim), var(--green), var(--green-dim), transparent);
+}
+
+.flow-step {
+  display: flex;
+  gap: 2rem;
+  align-items: flex-start;
+  padding: 2rem 0;
+  position: relative;
+}
+
+.flow-num {
+  width: 80px;
+  min-width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: var(--bg);
+  background: var(--green);
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  position: relative;
+  z-index: 2;
+  box-shadow: 0 0 30px var(--green-glow);
+}
+
+.flow-content h4 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.2rem;
+  color: var(--green);
+  margin-bottom: 0.5rem;
+  letter-spacing: 2px;
+}
+
+.flow-content p {
+  color: var(--text);
+  font-size: 1rem;
+  line-height: 1.7;
+  font-weight: 300;
+}
+
+.flow-content .code-line {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.8rem;
+  color: var(--green-dim);
+  margin-top: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: rgba(0, 0, 0, 0.3);
+  border-left: 2px solid var(--green-dim);
+  display: inline-block;
+}
+
+/* ===== GALLERY ===== */
+#gallery {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.gallery-grid {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+}
+
+.gallery-item {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(57, 255, 20, 0.1);
+  aspect-ratio: 1;
+  cursor: pointer;
+  transition: all 0.4s;
+}
+
+.gallery-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: brightness(0.7) contrast(1.1) saturate(1.1);
+  transition: all 0.6s;
+}
+
+.gallery-item:hover img {
+  filter: brightness(0.9) contrast(1.2) saturate(1.3);
+  transform: scale(1.05);
+}
+
+.gallery-item:hover {
+  border-color: var(--green);
+  box-shadow: 0 0 30px rgba(57, 255, 20, 0.2);
+}
+
+/* ===== LIVE TERMINAL ===== */
+#terminal {
+  background:
+    radial-gradient(ellipse at 50% 50%, rgba(57, 255, 20, 0.03) 0%, transparent 50%);
+}
+
+.terminal-window {
+  max-width: 800px;
+  margin: 0 auto;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(57, 255, 20, 0.2);
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 0 0 40px rgba(57, 255, 20, 0.05);
+}
+
+.terminal-bar {
+  background: rgba(57, 255, 20, 0.08);
+  padding: 0.6rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-bottom: 1px solid rgba(57, 255, 20, 0.1);
+}
+
+.terminal-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+}
+.terminal-dot.red { background: var(--red); }
+.terminal-dot.yellow { background: #ffaa00; }
+.terminal-dot.green { background: var(--green); }
+
+.terminal-title {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  margin-left: 0.5rem;
+  letter-spacing: 2px;
+}
+
+.terminal-body {
+  padding: 1.5rem;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.85rem;
+  line-height: 1.8;
+  min-height: 300px;
+}
+
+.terminal-line {
+  opacity: 0;
+  animation: termFadeIn 0.3s forwards;
+}
+
+.terminal-line .prompt { color: var(--green); }
+.terminal-line .cmd { color: var(--text); }
+.terminal-line .success { color: var(--green); }
+.terminal-line .warn { color: #ffaa00; }
+.terminal-line .error { color: var(--red); }
+.terminal-line .dim { color: var(--text-dim); }
+
+@keyframes termFadeIn {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.cursor-blink {
+  display: inline-block;
+  width: 8px;
+  height: 14px;
+  background: var(--green);
+  animation: blink 1s step-end infinite;
+  vertical-align: middle;
+  margin-left: 2px;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* ===== TOKENOMICS ===== */
+#tokenomics {
+  background:
+    radial-gradient(ellipse at 50% 50%, rgba(57, 255, 20, 0.04) 0%, transparent 50%);
+}
+
+.tokenomics-grid {
+  max-width: 1000px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2rem;
+}
+
+.token-card {
+  background: var(--bg-card);
+  border: 1px solid rgba(57, 255, 20, 0.1);
+  padding: 2rem;
+  text-align: center;
+  transition: all 0.3s;
+  position: relative;
+  overflow: hidden;
+}
+
+.token-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--green), transparent);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.token-card:hover::before { opacity: 1; }
+
+.token-card:hover {
+  border-color: rgba(57, 255, 20, 0.3);
+  box-shadow: 0 0 30px rgba(57, 255, 20, 0.05);
+}
+
+.token-value {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 2rem;
+  font-weight: 900;
+  color: var(--green);
+  text-shadow: 0 0 20px var(--green-glow);
+  margin-bottom: 0.5rem;
+}
+
+.token-label {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  letter-spacing: 3px;
+  text-transform: uppercase;
+}
+
+/* ===== FOOTER ===== */
+.footer {
+  padding: 3rem 2rem;
+  text-align: center;
+  border-top: 1px solid rgba(57, 255, 20, 0.08);
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.footer-skull {
+  font-size: 2rem;
+  margin-bottom: 1rem;
+  filter: drop-shadow(0 0 10px var(--green-glow));
+}
+
+.footer-links {
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  margin-bottom: 1.5rem;
+}
+
+.footer-links a {
+  color: var(--text-dim);
+  text-decoration: none;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.8rem;
+  letter-spacing: 2px;
+  transition: color 0.3s;
+}
+
+.footer-links a:hover { color: var(--green); }
+
+.footer-disclaimer {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  letter-spacing: 1px;
+  max-width: 600px;
+  margin: 0 auto;
+  line-height: 1.6;
+  opacity: 0.5;
+}
+
+/* ===== ANIMATED BORDER GLOW ===== */
+.glow-border {
+  position: relative;
+}
+
+.glow-border::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  background: linear-gradient(45deg, var(--green), transparent, var(--green), transparent);
+  z-index: -1;
+  animation: borderRotate 4s linear infinite;
+  filter: blur(2px);
+  opacity: 0.3;
+}
+
+@keyframes borderRotate {
+  0% { background-position: 0% 0%; }
+  100% { background-position: 200% 200%; }
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 768px) {
+  .nav-links { display: none; }
+  .about-grid { grid-template-columns: 1fr; gap: 2rem; }
+  .tokenomics-grid { grid-template-columns: 1fr; }
+  .gallery-grid { grid-template-columns: 1fr 1fr; }
+  .mechanism-flow::before { left: 25px; }
+  .flow-num { width: 50px; min-width: 50px; height: 50px; font-size: 1rem; }
+}
+
+/* ===== FADE-IN ON SCROLL ===== */
+.fade-up {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: opacity 0.8s, transform 0.8s;
+}
+
+.fade-up.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ===== GLITCH TEXT ===== */
+.glitch {
+  position: relative;
+}
+
+.glitch::before, .glitch::after {
+  content: attr(data-text);
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.glitch::before {
+  animation: glitch1 3s infinite;
+  clip-path: polygon(0 0, 100% 0, 100% 35%, 0 35%);
+  color: var(--red);
+  opacity: 0.3;
+}
+
+.glitch::after {
+  animation: glitch2 3s infinite;
+  clip-path: polygon(0 65%, 100% 65%, 100% 100%, 0 100%);
+  color: cyan;
+  opacity: 0.2;
+}
+
+@keyframes glitch1 {
+  0%, 90%, 100% { transform: translate(0); }
+  92% { transform: translate(-3px, 1px); }
+  94% { transform: translate(3px, -1px); }
+  96% { transform: translate(-2px, 2px); }
+}
+
+@keyframes glitch2 {
+  0%, 88%, 100% { transform: translate(0); }
+  90% { transform: translate(3px, -1px); }
+  93% { transform: translate(-3px, 2px); }
+  95% { transform: translate(2px, -2px); }
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="nav">
+  <div class="nav-logo">$<span>MM</span></div>
+  <div class="nav-links">
+    <a href="#about">LORE</a>
+    <a href="#mechanism">MECHANISM</a>
+    <a href="#tokenomics">TOKENOMICS</a>
+    <a href="#terminal">TERMINAL</a>
+    <a href="#" class="btn-buy">BUY $MM</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <canvas id="matrix-rain"></canvas>
+  <div class="hero-bg"></div>
+  <div class="hero-content">
+    <div class="hero-image-wrapper">
+      <img src="1000042173.jpg" alt="The Marketmaker">
+    </div>
+    <div class="hero-ticker">// SYSTEM ONLINE — CLAIMING FEES EVERY 180 SECONDS</div>
+    <h1 class="hero-title glitch" data-text="THE MARKETMAKER"><span class="dollar">$</span>THE MARKETMAKER</h1>
+    <p class="hero-subtitle">He claims. He trades. He never sleeps.<br>The first memecoin that market-makes itself.</p>
+    <div class="hero-cta">
+      <a href="#" class="btn-primary">BUY ON PUMP.FUN</a>
+      <a href="#mechanism" class="btn-secondary">HOW IT WORKS →</a>
+    </div>
+  </div>
+</section>
+
+<!-- CA BAR -->
+<div class="ca-bar">
+  <span class="ca-label">Contract Address:</span>
+  <span class="ca-address" onclick="navigator.clipboard.writeText(this.textContent)" title="Click to copy">XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX</span>
+</div>
+
+<!-- ABOUT -->
+<section id="about">
+  <div class="section-header fade-up">
+    <div class="section-tag">// WHO IS HE</div>
+    <h2 class="section-title">THE LORE</h2>
+  </div>
+  <div class="about-grid">
+    <div class="about-image fade-up">
+      <img src="1000042159.jpg" alt="The Marketmaker close-up">
+    </div>
+    <div class="about-text fade-up">
+      <h3>He was there before you.</h3>
+      <p>Deep in the basement of an abandoned trading floor, surrounded by monitors casting their sickly green glow, <span class="highlight">The Marketmaker</span> stares into the order book.</p>
+      <p>He doesn't sleep. He doesn't eat. He <span class="highlight">claims creator fees every 3 minutes</span> and feeds them back into the market — buying, selling, creating volume. An infinite loop of liquidity.</p>
+      <p>He was the first to trade. He will be the last. The charts are his canvas. The spread is his domain. And the fees? <span class="highlight">The fees always flow back.</span></p>
+    </div>
+  </div>
+</section>
+
+<!-- MECHANISM -->
+<section id="mechanism">
+  <div class="section-header fade-up">
+    <div class="section-tag">// HOW THE MACHINE WORKS</div>
+    <h2 class="section-title">THE MECHANISM</h2>
+  </div>
+  <div class="mechanism-flow">
+    <div class="flow-step fade-up">
+      <div class="flow-num">01</div>
+      <div class="flow-content">
+        <h4>FEES ACCUMULATE</h4>
+        <p>Every trade on pump.fun generates creator fees in SOL. These fees accumulate in the creator wallet as volume flows through the bonding curve.</p>
+        <div class="code-line">→ creator_fees.pending += trade.fee</div>
+      </div>
+    </div>
+    <div class="flow-step fade-up">
+      <div class="flow-num">02</div>
+      <div class="flow-content">
+        <h4>AUTO-CLAIM EVERY 3 MINUTES</h4>
+        <p>The Marketmaker's bot runs an automated cron job, claiming all accumulated creator fees every 180 seconds. No human intervention. Pure machine discipline.</p>
+        <div class="code-line">→ claimCreatorFees() // every 180s</div>
+      </div>
+    </div>
+    <div class="flow-step fade-up">
+      <div class="flow-num">03</div>
+      <div class="flow-content">
+        <h4>RANGE TRADING ACTIVATED</h4>
+        <p>Claimed SOL is immediately deployed back into the market. The bot trades within a range — buying dips, selling rips — creating volume and tight spreads. The Marketmaker doesn't just hold. He trades.</p>
+        <div class="code-line">→ executeTrade(range.low, range.high, claimed_sol)</div>
+      </div>
+    </div>
+    <div class="flow-step fade-up">
+      <div class="flow-num">04</div>
+      <div class="flow-content">
+        <h4>THE LOOP NEVER ENDS</h4>
+        <p>More volume → more fees → more trading → more volume. The cycle feeds itself. Even after Raydium migration, creator fees keep flowing and The Marketmaker keeps trading.</p>
+        <div class="code-line">→ while(true) { claim(); trade(); repeat(); }</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- GALLERY -->
+<section id="gallery">
+  <div class="section-header fade-up">
+    <div class="section-tag">// SURVEILLANCE FOOTAGE</div>
+    <h2 class="section-title">CAPTURED FRAMES</h2>
+  </div>
+  <div class="gallery-grid">
+    <div class="gallery-item fade-up"><img src="1000042158.jpg" alt="The Marketmaker"></div>
+    <div class="gallery-item fade-up"><img src="1000042160.jpg" alt="The Marketmaker"></div>
+    <div class="gallery-item fade-up"><img src="1000042174.jpg" alt="The Marketmaker"></div>
+    <div class="gallery-item fade-up"><img src="1000042157.jpg" alt="The Marketmaker"></div>
+    <div class="gallery-item fade-up"><img src="1000042175.jpg" alt="The Marketmaker"></div>
+    <div class="gallery-item fade-up"><img src="1000042159.jpg" alt="The Marketmaker"></div>
+  </div>
+</section>
+
+<!-- TOKENOMICS -->
+<section id="tokenomics">
+  <div class="section-header fade-up">
+    <div class="section-tag">// THE NUMBERS</div>
+    <h2 class="section-title">TOKENOMICS</h2>
+  </div>
+  <div class="tokenomics-grid">
+    <div class="token-card fade-up">
+      <div class="token-value">1B</div>
+      <div class="token-label">TOTAL SUPPLY</div>
+    </div>
+    <div class="token-card fade-up">
+      <div class="token-value">0%</div>
+      <div class="token-label">TEAM ALLOCATION</div>
+    </div>
+    <div class="token-card fade-up">
+      <div class="token-value">180s</div>
+      <div class="token-label">FEE CLAIM INTERVAL</div>
+    </div>
+    <div class="token-card fade-up">
+      <div class="token-value">100%</div>
+      <div class="token-label">FEES → MARKET MAKING</div>
+    </div>
+    <div class="token-card fade-up">
+      <div class="token-value">∞</div>
+      <div class="token-label">LOOP CYCLES</div>
+    </div>
+    <div class="token-card fade-up">
+      <div class="token-value" style="color: var(--red);">0</div>
+      <div class="token-label">FUCKS GIVEN</div>
+    </div>
+  </div>
+</section>
+
+<!-- TERMINAL -->
+<section id="terminal">
+  <div class="section-header fade-up">
+    <div class="section-tag">// LIVE FEED</div>
+    <h2 class="section-title">THE TERMINAL</h2>
+  </div>
+  <div class="terminal-window fade-up">
+    <div class="terminal-bar">
+      <div class="terminal-dot red"></div>
+      <div class="terminal-dot yellow"></div>
+      <div class="terminal-dot green"></div>
+      <span class="terminal-title">marketmaker_v1.sol — LIVE</span>
+    </div>
+    <div class="terminal-body" id="terminal-output">
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <div class="footer-skull">💀</div>
+  <div class="footer-links">
+    <a href="#">PUMP.FUN</a>
+    <a href="#">TWITTER</a>
+    <a href="#">TELEGRAM</a>
+    <a href="#">DEXSCREENER</a>
+  </div>
+  <p class="footer-disclaimer">$MM is a memecoin with no intrinsic value or expectation of financial return. The Marketmaker is a fictional character. This is not financial advice. Trade at your own risk. The Marketmaker is always watching.</p>
+</footer>
+
+<script>
+// ===== MATRIX RAIN =====
+const canvas = document.getElementById('matrix-rain');
+const ctx = canvas.getContext('2d');
+
+function resizeCanvas() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+const chars = '$MM01アイウエオカキクケコ¥€£₿'.split('');
+const fontSize = 14;
+let columns = Math.floor(canvas.width / fontSize);
+let drops = Array(columns).fill(1);
+
+function drawMatrix() {
+  ctx.fillStyle = 'rgba(3, 8, 4, 0.05)';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#39ff14';
+  ctx.font = fontSize + 'px Share Tech Mono, monospace';
+
+  for (let i = 0; i < drops.length; i++) {
+    const text = chars[Math.floor(Math.random() * chars.length)];
+    ctx.globalAlpha = Math.random() * 0.3 + 0.1;
+    ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+    ctx.globalAlpha = 1;
+
+    if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+      drops[i] = 0;
+    }
+    drops[i]++;
+  }
+}
+setInterval(drawMatrix, 50);
+
+// ===== SCROLL FADE-IN =====
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) e.target.classList.add('visible');
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('.fade-up').forEach(el => observer.observe(el));
+
+// ===== TERMINAL SIMULATION =====
+const terminalLines = [
+  { text: '<span class="prompt">$MM&gt;</span> <span class="cmd">initializing marketmaker_v1.sol...</span>', delay: 0 },
+  { text: '<span class="success">[OK]</span> <span class="dim">Connected to Solana mainnet-beta</span>', delay: 800 },
+  { text: '<span class="success">[OK]</span> <span class="dim">Creator wallet loaded: 7xK...m4F</span>', delay: 1200 },
+  { text: '<span class="prompt">$MM&gt;</span> <span class="cmd">startClaimLoop(interval=180s)</span>', delay: 2000 },
+  { text: '<span class="success">[OK]</span> <span class="dim">Fee claim cron initialized — every 180 seconds</span>', delay: 2600 },
+  { text: '<span class="warn">[CLAIM]</span> Claimed 0.42 SOL in creator fees', delay: 3500 },
+  { text: '<span class="prompt">$MM&gt;</span> <span class="cmd">executeRangeTrade(0.42 SOL, range=[0.000012, 0.000018])</span>', delay: 4200 },
+  { text: '<span class="success">[BUY]</span> Bought 34,211 $MM @ 0.00001228', delay: 5000 },
+  { text: '<span class="error">[SELL]</span> Sold 18,400 $MM @ 0.00001673', delay: 5800 },
+  { text: '<span class="dim">--- volume generated: 0.42 SOL ---</span>', delay: 6400 },
+  { text: '<span class="warn">[CLAIM]</span> Claimed 0.58 SOL in creator fees', delay: 7500 },
+  { text: '<span class="success">[BUY]</span> Bought 45,892 $MM @ 0.00001264', delay: 8200 },
+  { text: '<span class="error">[SELL]</span> Sold 22,100 $MM @ 0.00001701', delay: 8900 },
+  { text: '<span class="success">[BUY]</span> Bought 19,440 $MM @ 0.00001305', delay: 9500 },
+  { text: '<span class="dim">--- loop active. the marketmaker never sleeps. ---</span>', delay: 10200 },
+];
+
+const termOutput = document.getElementById('terminal-output');
+let termStarted = false;
+
+const termObserver = new IntersectionObserver((entries) => {
+  if (entries[0].isIntersecting && !termStarted) {
+    termStarted = true;
+    runTerminal();
+  }
+}, { threshold: 0.3 });
+termObserver.observe(document.getElementById('terminal'));
+
+function runTerminal() {
+  terminalLines.forEach((line, i) => {
+    setTimeout(() => {
+      const div = document.createElement('div');
+      div.className = 'terminal-line';
+      div.innerHTML = line.text;
+      div.style.animationDelay = '0s';
+      termOutput.appendChild(div);
+      termOutput.scrollTop = termOutput.scrollHeight;
+
+      // Add blinking cursor to last line
+      const cursors = termOutput.querySelectorAll('.cursor-blink');
+      cursors.forEach(c => c.remove());
+      if (i === terminalLines.length - 1) {
+        const cursor = document.createElement('span');
+        cursor.className = 'cursor-blink';
+        div.appendChild(cursor);
+
+        // Start looping new random lines
+        setTimeout(loopRandomLines, 3000);
+      }
+    }, line.delay);
+  });
+}
+
+function loopRandomLines() {
+  const randomLines = [
+    '<span class="warn">[CLAIM]</span> Claimed ' + (Math.random() * 2 + 0.1).toFixed(2) + ' SOL in creator fees',
+    '<span class="success">[BUY]</span> Bought ' + Math.floor(Math.random() * 80000 + 10000).toLocaleString() + ' $MM @ 0.0000' + Math.floor(Math.random() * 9000 + 1000),
+    '<span class="error">[SELL]</span> Sold ' + Math.floor(Math.random() * 40000 + 5000).toLocaleString() + ' $MM @ 0.0000' + Math.floor(Math.random() * 9000 + 1000),
+    '<span class="dim">--- volume generated: ' + (Math.random() * 3 + 0.2).toFixed(2) + ' SOL ---</span>',
+  ];
+
+  const div = document.createElement('div');
+  div.className = 'terminal-line';
+  div.innerHTML = randomLines[Math.floor(Math.random() * randomLines.length)];
+  termOutput.appendChild(div);
+  termOutput.scrollTop = termOutput.scrollHeight;
+
+  // Keep max 30 lines
+  while (termOutput.children.length > 30) {
+    termOutput.removeChild(termOutput.firstChild);
+  }
+
+  setTimeout(loopRandomLines, Math.random() * 2000 + 1000);
+}
+
+// ===== COPY CA =====
+document.querySelector('.ca-address').addEventListener('click', function() {
+  const original = this.textContent;
+  this.textContent = 'COPIED ✓';
+  this.style.color = '#39ff14';
+  setTimeout(() => {
+    this.textContent = original;
+    this.style.color = '';
+  }, 1500);
+});
+</script>
+
+</body>
+</html>
