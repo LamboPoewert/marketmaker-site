@@ -827,6 +827,24 @@ section {
   <span class="ca-address" onclick="navigator.clipboard.writeText(this.textContent)" title="Click to copy">XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX</span>
 </div>
 
+<!-- TERMINAL -->
+<section id="terminal">
+  <div class="section-header fade-up">
+    <div class="section-tag">// LIVE FEED</div>
+    <h2 class="section-title">THE TERMINAL</h2>
+  </div>
+  <div class="terminal-window fade-up">
+    <div class="terminal-bar">
+      <div class="terminal-dot red"></div>
+      <div class="terminal-dot yellow"></div>
+      <div class="terminal-dot green"></div>
+      <span class="terminal-title">marketmaker_v6g.sol — <span id="terminal-status">CONNECTING</span></span>
+    </div>
+    <div class="terminal-body" id="terminal-output">
+    </div>
+  </div>
+</section>
+
 <!-- ABOUT -->
 <section id="about">
   <div class="section-header fade-up">
@@ -938,24 +956,6 @@ section {
   </div>
 </section>
 
-<!-- TERMINAL -->
-<section id="terminal">
-  <div class="section-header fade-up">
-    <div class="section-tag">// LIVE FEED</div>
-    <h2 class="section-title">THE TERMINAL</h2>
-  </div>
-  <div class="terminal-window fade-up">
-    <div class="terminal-bar">
-      <div class="terminal-dot red"></div>
-      <div class="terminal-dot yellow"></div>
-      <div class="terminal-dot green"></div>
-      <span class="terminal-title">marketmaker_v1.sol — LIVE</span>
-    </div>
-    <div class="terminal-body" id="terminal-output">
-    </div>
-  </div>
-</section>
-
 <!-- FOOTER -->
 <footer class="footer">
   <div class="footer-skull">💀</div>
@@ -1014,27 +1014,24 @@ const observer = new IntersectionObserver((entries) => {
 
 document.querySelectorAll('.fade-up').forEach(el => observer.observe(el));
 
-// ===== TERMINAL SIMULATION =====
-const terminalLines = [
-  { text: '<span class="prompt">$MM&gt;</span> <span class="cmd">initializing marketmaker_v1.sol...</span>', delay: 0 },
-  { text: '<span class="success">[OK]</span> <span class="dim">Connected to Solana mainnet-beta</span>', delay: 800 },
-  { text: '<span class="success">[OK]</span> <span class="dim">Creator wallet loaded: 7xK...m4F</span>', delay: 1200 },
-  { text: '<span class="prompt">$MM&gt;</span> <span class="cmd">startClaimLoop(interval=180s)</span>', delay: 2000 },
-  { text: '<span class="success">[OK]</span> <span class="dim">Fee claim cron initialized — every 180 seconds</span>', delay: 2600 },
-  { text: '<span class="warn">[CLAIM]</span> Claimed 0.42 SOL in creator fees', delay: 3500 },
-  { text: '<span class="prompt">$MM&gt;</span> <span class="cmd">executeRangeTrade(0.42 SOL, range=[0.000012, 0.000018])</span>', delay: 4200 },
-  { text: '<span class="success">[BUY]</span> Bought 34,211 $MM @ 0.00001228', delay: 5000 },
-  { text: '<span class="error">[SELL]</span> Sold 18,400 $MM @ 0.00001673', delay: 5800 },
-  { text: '<span class="dim">--- volume generated: 0.42 SOL ---</span>', delay: 6400 },
-  { text: '<span class="warn">[CLAIM]</span> Claimed 0.58 SOL in creator fees', delay: 7500 },
-  { text: '<span class="success">[BUY]</span> Bought 45,892 $MM @ 0.00001264', delay: 8200 },
-  { text: '<span class="error">[SELL]</span> Sold 22,100 $MM @ 0.00001701', delay: 8900 },
-  { text: '<span class="success">[BUY]</span> Bought 19,440 $MM @ 0.00001305', delay: 9500 },
-  { text: '<span class="dim">--- loop active. the marketmaker never sleeps. ---</span>', delay: 10200 },
-];
+// ===== LIVE TERMINAL =====
+// ── CONFIG: Replace these when token goes live ──
+const MM_CONFIG = {
+  TOKEN_MINT: 'PASTE_TOKEN_MINT_HERE',           // Token contract address
+  MM_WALLET: 'PASTE_MM_WALLET_ADDRESS_HERE',      // Marketmaker wallet public key
+  TOKEN_SYMBOL: '$MM',                             // Display symbol
+  HELIUS_KEY: 'ece4df9b-c87e-4d85-bb81-8215b9633102',
+  RPC: 'https://mainnet.helius-rpc.com/?api-key=ece4df9b-c87e-4d85-bb81-8215b9633102',
+  // Set IS_LIVE to true when the token is deployed and trading
+  IS_LIVE: false,
+};
 
 const termOutput = document.getElementById('terminal-output');
+const termStatus = document.getElementById('terminal-status');
 let termStarted = false;
+let lastSeenSignature = null;
+let totalClaimedSession = 0;
+let tradeCountSession = 0;
 
 const termObserver = new IntersectionObserver((entries) => {
   if (entries[0].isIntersecting && !termStarted) {
@@ -1044,51 +1041,364 @@ const termObserver = new IntersectionObserver((entries) => {
 }, { threshold: 0.3 });
 termObserver.observe(document.getElementById('terminal'));
 
-function runTerminal() {
-  terminalLines.forEach((line, i) => {
+function termLog(html) {
+  const div = document.createElement('div');
+  div.className = 'terminal-line';
+  div.innerHTML = html;
+  termOutput.appendChild(div);
+  termOutput.scrollTop = termOutput.scrollHeight;
+  // Keep max 50 lines
+  while (termOutput.children.length > 50) {
+    termOutput.removeChild(termOutput.firstChild);
+  }
+}
+
+function shortAddr(addr) {
+  if (!addr || addr.length < 8) return addr;
+  return addr.slice(0, 4) + '...' + addr.slice(-3);
+}
+
+function formatNum(n) {
+  if (n >= 1e6) return (n / 1e6).toFixed(2) + 'M';
+  if (n >= 1e3) return Math.floor(n).toLocaleString();
+  return n.toFixed(n < 0.001 ? 8 : n < 1 ? 6 : 4);
+}
+
+// ── BOOT SEQUENCE ──
+async function runTerminal() {
+  if (!MM_CONFIG.IS_LIVE) {
+    runSimulatedTerminal();
+    return;
+  }
+
+  termStatus.textContent = 'CONNECTING';
+  termStatus.style.color = '#ffaa00';
+
+  const bootLines = [
+    { html: '<span class="prompt">$MM&gt;</span> <span class="cmd">initializing marketmaker_v6g...</span>', delay: 0 },
+    { html: '<span class="success">[OK]</span> <span class="dim">Connected to Solana mainnet-beta</span>', delay: 800 },
+    { html: '<span class="success">[OK]</span> <span class="dim">Marketmaker wallet: ' + shortAddr(MM_CONFIG.MM_WALLET) + '</span>', delay: 1200 },
+    { html: '<span class="success">[OK]</span> <span class="dim">Token: ' + shortAddr(MM_CONFIG.TOKEN_MINT) + '</span>', delay: 1600 },
+    { html: '<span class="prompt">$MM&gt;</span> <span class="cmd">connecting live feeds...</span>', delay: 2200 },
+  ];
+
+  for (const line of bootLines) {
+    await sleep(line.delay === 0 ? 0 : line.delay - (bootLines[bootLines.indexOf(line) - 1]?.delay || 0));
+    termLog(line.html);
+  }
+
+  // Try to fetch initial price
+  await sleep(800);
+  const price = await fetchPrice();
+  if (price) {
+    termLog('<span class="success">[OK]</span> <span class="dim">Price feed active: $' + price.usd.toFixed(8) + ' / ' + price.sol.toExponential(4) + ' SOL</span>');
+    termStatus.textContent = 'LIVE';
+    termStatus.style.color = '#39ff14';
+  } else {
+    termLog('<span class="warn">[WARN]</span> <span class="dim">Price feed unavailable — retrying...</span>');
+    termStatus.textContent = 'CONNECTING';
+  }
+
+  // Fetch wallet balances
+  await sleep(600);
+  const balances = await fetchBalances();
+  if (balances) {
+    termLog('<span class="success">[OK]</span> <span class="dim">Wallet: ' + balances.sol.toFixed(4) + ' SOL | ' + formatNum(balances.tokens) + ' ' + MM_CONFIG.TOKEN_SYMBOL + '</span>');
+  }
+
+  await sleep(400);
+  termLog('<span class="dim">--- live feed active. the marketmaker never sleeps. ---</span>');
+
+  // Start live polling loops
+  pollPrice();
+  pollTransactions();
+  pollBalances();
+}
+
+// ── PRICE FEED ──
+async function fetchPrice() {
+  try {
+    const res = await fetch('https://api.dexscreener.com/latest/dex/tokens/' + MM_CONFIG.TOKEN_MINT);
+    const data = await res.json();
+    if (data.pairs && data.pairs.length > 0) {
+      const pair = data.pairs.sort((a, b) => (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0))[0];
+      const usd = parseFloat(pair.priceUsd || '0');
+      const sol = parseFloat(pair.priceNative || '0');
+      const change5m = pair.priceChange?.m5 || 0;
+      const change1h = pair.priceChange?.h1 || 0;
+      const volume24h = pair.volume?.h24 || 0;
+      if (usd > 0 && sol > 0) return { usd, sol, change5m, change1h, volume24h };
+    }
+  } catch (e) {}
+  return null;
+}
+
+let lastPrice = null;
+async function pollPrice() {
+  const price = await fetchPrice();
+  if (price) {
+    const changeColor = price.change5m >= 0 ? 'success' : 'error';
+    const arrow = price.change5m >= 0 ? '▲' : '▼';
+    const priceChanged = lastPrice && Math.abs(price.usd - lastPrice.usd) / lastPrice.usd > 0.005;
+
+    if (!lastPrice || priceChanged) {
+      termLog(
+        '<span class="prompt">[PRICE]</span> $' + price.usd.toFixed(8) +
+        ' <span class="' + changeColor + '">(' + arrow + ' ' + Math.abs(price.change5m).toFixed(1) + '% 5m)</span>' +
+        ' <span class="dim">| vol24h: $' + formatNum(price.volume24h) + '</span>'
+      );
+    }
+    lastPrice = price;
+    termStatus.textContent = 'LIVE';
+    termStatus.style.color = '#39ff14';
+  }
+  setTimeout(pollPrice, 15000);
+}
+
+// ── TRANSACTION HISTORY (trades + claims) ──
+async function fetchRecentTxs() {
+  try {
+    let url;
+    if (MM_CONFIG.HELIUS_KEY) {
+      // Helius parsed transaction API (better, free tier 10 req/s)
+      url = 'https://api.helius.xyz/v0/addresses/' + MM_CONFIG.MM_WALLET +
+            '/transactions?api-key=' + MM_CONFIG.HELIUS_KEY + '&limit=10';
+    } else {
+      // Fallback: Solana RPC getSignaturesForAddress (no parsing, just signatures + timestamps)
+      url = MM_CONFIG.RPC;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0', id: 1,
+          method: 'getSignaturesForAddress',
+          params: [MM_CONFIG.MM_WALLET, { limit: 10 }]
+        })
+      });
+      const data = await res.json();
+      if (data.result) {
+        return data.result.map(tx => ({
+          signature: tx.signature,
+          timestamp: tx.blockTime,
+          err: tx.err,
+          type: 'unknown' // RPC doesn't parse
+        }));
+      }
+      return [];
+    }
+
+    const res = await fetch(url);
+    const txs = await res.json();
+    return Array.isArray(txs) ? txs : [];
+  } catch (e) { return []; }
+}
+
+function parseTxType(tx) {
+  // Helius parsed format
+  if (tx.type === 'SWAP') {
+    const swap = tx.events?.swap;
+    if (swap) {
+      const nativeIn = swap.nativeInput;
+      const nativeOut = swap.nativeOutput;
+      const tokenIn = swap.tokenInputs?.[0];
+      const tokenOut = swap.tokenOutputs?.[0];
+
+      if (nativeIn && nativeIn.amount > 0 && tokenOut) {
+        return { type: 'BUY', solAmount: nativeIn.amount / 1e9, tokenAmount: tokenOut.rawTokenAmount?.tokenAmount / Math.pow(10, tokenOut.rawTokenAmount?.decimals || 6) || 0 };
+      }
+      if (tokenIn && nativeOut && nativeOut.amount > 0) {
+        return { type: 'SELL', solAmount: nativeOut.amount / 1e9, tokenAmount: tokenIn.rawTokenAmount?.tokenAmount / Math.pow(10, tokenIn.rawTokenAmount?.decimals || 6) || 0 };
+      }
+    }
+    // Fallback: check tokenTransfers
+    const transfers = tx.tokenTransfers || [];
+    const nativeTransfers = tx.nativeTransfers || [];
+    const solOut = nativeTransfers.find(t => t.fromUserAccount === MM_CONFIG.MM_WALLET);
+    const solIn = nativeTransfers.find(t => t.toUserAccount === MM_CONFIG.MM_WALLET);
+    const tokOut = transfers.find(t => t.fromUserAccount === MM_CONFIG.MM_WALLET);
+    const tokIn = transfers.find(t => t.toUserAccount === MM_CONFIG.MM_WALLET);
+
+    if (solOut && tokIn) return { type: 'BUY', solAmount: (solOut.amount || 0) / 1e9, tokenAmount: tokIn.tokenAmount || 0 };
+    if (tokOut && solIn) return { type: 'SELL', solAmount: (solIn.amount || 0) / 1e9, tokenAmount: tokOut.tokenAmount || 0 };
+  }
+
+  // Detect fee claims
+  if (tx.type === 'UNKNOWN' || tx.type === 'TRANSFER') {
+    const nativeTransfers = tx.nativeTransfers || [];
+    const incoming = nativeTransfers.filter(t => t.toUserAccount === MM_CONFIG.MM_WALLET);
+    const outgoing = nativeTransfers.filter(t => t.fromUserAccount === MM_CONFIG.MM_WALLET);
+    // Claim = SOL comes in, no tokens move, small outgoing (just tx fee)
+    if (incoming.length > 0 && (tx.tokenTransfers || []).length === 0) {
+      const claimed = incoming.reduce((s, t) => s + (t.amount || 0), 0) / 1e9;
+      if (claimed > 0.001) return { type: 'CLAIM', solAmount: claimed };
+    }
+  }
+
+  return null;
+}
+
+async function pollTransactions() {
+  const txs = await fetchRecentTxs();
+
+  if (txs.length > 0 && MM_CONFIG.HELIUS_KEY) {
+    // Process new txs (only ones we haven't seen)
+    const newTxs = [];
+    for (const tx of txs) {
+      const sig = tx.signature;
+      if (sig === lastSeenSignature) break;
+      newTxs.push(tx);
+    }
+    if (txs[0]?.signature) lastSeenSignature = txs[0].signature;
+
+    // Display newest last (reverse)
+    for (const tx of newTxs.reverse()) {
+      const parsed = parseTxType(tx);
+      if (!parsed) continue;
+
+      const time = tx.timestamp ? new Date(tx.timestamp * 1000).toLocaleTimeString() : '';
+      const timeStr = time ? '<span class="dim">[' + time + ']</span> ' : '';
+
+      if (parsed.type === 'BUY') {
+        tradeCountSession++;
+        termLog(timeStr + '<span class="success">[BUY]</span> Bought ' + formatNum(parsed.tokenAmount) + ' ' + MM_CONFIG.TOKEN_SYMBOL + ' for ' + parsed.solAmount.toFixed(4) + ' SOL');
+      } else if (parsed.type === 'SELL') {
+        tradeCountSession++;
+        termLog(timeStr + '<span class="error">[SELL]</span> Sold ' + formatNum(parsed.tokenAmount) + ' ' + MM_CONFIG.TOKEN_SYMBOL + ' for ' + parsed.solAmount.toFixed(4) + ' SOL');
+      } else if (parsed.type === 'CLAIM') {
+        totalClaimedSession += parsed.solAmount;
+        termLog(timeStr + '<span class="warn">[CLAIM]</span> Claimed ' + parsed.solAmount.toFixed(4) + ' SOL in creator fees <span class="dim">(total: ' + totalClaimedSession.toFixed(4) + ')</span>');
+      }
+    }
+  } else if (txs.length > 0 && !MM_CONFIG.HELIUS_KEY) {
+    // RPC-only mode: just show activity indicator
+    const newTxs = [];
+    for (const tx of txs) {
+      if (tx.signature === lastSeenSignature) break;
+      if (!tx.err) newTxs.push(tx);
+    }
+    if (txs[0]?.signature) lastSeenSignature = txs[0].signature;
+
+    if (newTxs.length > 0) {
+      termLog('<span class="dim">[' + new Date().toLocaleTimeString() + ']</span> <span class="prompt">[TX]</span> ' + newTxs.length + ' new transaction' + (newTxs.length > 1 ? 's' : '') + ' <span class="dim">(' + shortAddr(newTxs[0].signature) + ')</span>');
+    }
+  }
+
+  setTimeout(pollTransactions, 20000);
+}
+
+// ── WALLET BALANCES ──
+async function fetchBalances() {
+  try {
+    const rpc = MM_CONFIG.RPC;
+
+    // SOL balance
+    const solRes = await fetch(rpc, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0', id: 1,
+        method: 'getBalance',
+        params: [MM_CONFIG.MM_WALLET]
+      })
+    });
+    const solData = await solRes.json();
+    const sol = (solData.result?.value || 0) / 1e9;
+
+    // Token balance
+    const tokRes = await fetch(rpc, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0', id: 2,
+        method: 'getTokenAccountsByOwner',
+        params: [
+          MM_CONFIG.MM_WALLET,
+          { mint: MM_CONFIG.TOKEN_MINT },
+          { encoding: 'jsonParsed' }
+        ]
+      })
+    });
+    const tokData = await tokRes.json();
+    const accounts = tokData.result?.value || [];
+    let tokens = 0;
+    for (const acc of accounts) {
+      tokens += parseFloat(acc.account?.data?.parsed?.info?.tokenAmount?.uiAmount || 0);
+    }
+
+    return { sol, tokens };
+  } catch (e) { return null; }
+}
+
+async function pollBalances() {
+  const balances = await fetchBalances();
+  if (balances) {
+    const holdPct = (balances.tokens / 1e9 * 100).toFixed(2); // assumes 1B supply
+    termLog(
+      '<span class="dim">[' + new Date().toLocaleTimeString() + ']</span> ' +
+      '<span class="prompt">[WALLET]</span> ' +
+      balances.sol.toFixed(4) + ' SOL | ' +
+      formatNum(balances.tokens) + ' ' + MM_CONFIG.TOKEN_SYMBOL +
+      ' <span class="dim">(' + holdPct + '% supply)</span>'
+    );
+  }
+  setTimeout(pollBalances, 30000);
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ── FALLBACK: Simulated terminal when token isn't live yet ──
+function runSimulatedTerminal() {
+  termStatus.textContent = 'SIMULATION';
+  termStatus.style.color = '#ffaa00';
+
+  const bootLines = [
+    { text: '<span class="prompt">$MM&gt;</span> <span class="cmd">initializing marketmaker_v6g...</span>', delay: 0 },
+    { text: '<span class="success">[OK]</span> <span class="dim">Connected to Solana mainnet-beta</span>', delay: 800 },
+    { text: '<span class="success">[OK]</span> <span class="dim">Creator wallet loaded: 7xK...m4F</span>', delay: 1200 },
+    { text: '<span class="prompt">$MM&gt;</span> <span class="cmd">startClaimLoop(interval=180s)</span>', delay: 2000 },
+    { text: '<span class="success">[OK]</span> <span class="dim">Fee claim cron initialized — every 180 seconds</span>', delay: 2600 },
+    { text: '<span class="success">[OK]</span> <span class="dim">v6g strategy loaded — middle-zone skip rate: 40%</span>', delay: 3200 },
+    { text: '<span class="success">[OK]</span> <span class="dim">Holdings cap: 35,000,000 tokens (3.5% supply)</span>', delay: 3800 },
+    { text: '<span class="warn">[CLAIM]</span> Claimed 0.42 SOL in creator fees', delay: 4800 },
+    { text: '<span class="prompt">[PRICE]</span> $0.00001228 <span class="success">(▲ 2.1% 5m)</span> <span class="dim">| vol24h: $48,291</span>', delay: 5400 },
+    { text: '<span class="success">[BUY]</span> Bought 34,211 $MM for 0.0421 SOL', delay: 6000 },
+    { text: '<span class="error">[SELL]</span> Sold 18,400 $MM for 0.0308 SOL', delay: 6800 },
+    { text: '<span class="prompt">[WALLET]</span> 0.9847 SOL | 1.24M $MM <span class="dim">(0.12% supply)</span>', delay: 7400 },
+    { text: '<span class="warn">[CLAIM]</span> Claimed 0.58 SOL in creator fees <span class="dim">(total: 1.00)</span>', delay: 8500 },
+    { text: '<span class="success">[BUY]</span> Bought 45,892 $MM for 0.0580 SOL', delay: 9200 },
+    { text: '<span class="dim">[SKIP]</span> <span class="dim">Middle-zone trade skipped — saving fees</span>', delay: 9800 },
+    { text: '<span class="error">[SELL]</span> Sold 22,100 $MM for 0.0375 SOL', delay: 10400 },
+    { text: '<span class="prompt">[PRICE]</span> $0.00001305 <span class="success">(▲ 6.3% 5m)</span> <span class="dim">| vol24h: $51,440</span>', delay: 11000 },
+    { text: '<span class="dim">--- loop active. the marketmaker never sleeps. ---</span>', delay: 11800 },
+  ];
+
+  bootLines.forEach((line, i) => {
     setTimeout(() => {
-      const div = document.createElement('div');
-      div.className = 'terminal-line';
-      div.innerHTML = line.text;
-      div.style.animationDelay = '0s';
-      termOutput.appendChild(div);
-      termOutput.scrollTop = termOutput.scrollHeight;
-
-      // Add blinking cursor to last line
-      const cursors = termOutput.querySelectorAll('.cursor-blink');
-      cursors.forEach(c => c.remove());
-      if (i === terminalLines.length - 1) {
-        const cursor = document.createElement('span');
-        cursor.className = 'cursor-blink';
-        div.appendChild(cursor);
-
-        // Start looping new random lines
-        setTimeout(loopRandomLines, 3000);
+      termLog(line.text);
+      if (i === bootLines.length - 1) {
+        setTimeout(loopSimulatedLines, 3000);
       }
     }, line.delay);
   });
 }
 
-function loopRandomLines() {
-  const randomLines = [
-    '<span class="warn">[CLAIM]</span> Claimed ' + (Math.random() * 2 + 0.1).toFixed(2) + ' SOL in creator fees',
-    '<span class="success">[BUY]</span> Bought ' + Math.floor(Math.random() * 80000 + 10000).toLocaleString() + ' $MM @ 0.0000' + Math.floor(Math.random() * 9000 + 1000),
-    '<span class="error">[SELL]</span> Sold ' + Math.floor(Math.random() * 40000 + 5000).toLocaleString() + ' $MM @ 0.0000' + Math.floor(Math.random() * 9000 + 1000),
-    '<span class="dim">--- volume generated: ' + (Math.random() * 3 + 0.2).toFixed(2) + ' SOL ---</span>',
+function loopSimulatedLines() {
+  const price = (Math.random() * 0.00002 + 0.000008).toFixed(8);
+  const change = (Math.random() * 12 - 4).toFixed(1);
+  const changePos = parseFloat(change) >= 0;
+  const vol = Math.floor(Math.random() * 80000 + 20000);
+
+  const lines = [
+    '<span class="warn">[CLAIM]</span> Claimed ' + (Math.random() * 1.5 + 0.05).toFixed(4) + ' SOL in creator fees',
+    '<span class="success">[BUY]</span> Bought ' + formatNum(Math.floor(Math.random() * 80000 + 10000)) + ' $MM for ' + (Math.random() * 0.08 + 0.01).toFixed(4) + ' SOL',
+    '<span class="error">[SELL]</span> Sold ' + formatNum(Math.floor(Math.random() * 40000 + 5000)) + ' $MM for ' + (Math.random() * 0.06 + 0.005).toFixed(4) + ' SOL',
+    '<span class="prompt">[PRICE]</span> $' + price + ' <span class="' + (changePos ? 'success' : 'error') + '">(' + (changePos ? '▲' : '▼') + ' ' + Math.abs(change) + '% 5m)</span> <span class="dim">| vol24h: $' + formatNum(vol) + '</span>',
+    '<span class="prompt">[WALLET]</span> ' + (Math.random() * 1.5 + 0.3).toFixed(4) + ' SOL | ' + formatNum(Math.floor(Math.random() * 2000000 + 500000)) + ' $MM <span class="dim">(' + (Math.random() * 0.3 + 0.05).toFixed(2) + '% supply)</span>',
+    '<span class="dim">[SKIP]</span> <span class="dim">Middle-zone trade skipped — saving fees</span>',
   ];
 
-  const div = document.createElement('div');
-  div.className = 'terminal-line';
-  div.innerHTML = randomLines[Math.floor(Math.random() * randomLines.length)];
-  termOutput.appendChild(div);
-  termOutput.scrollTop = termOutput.scrollHeight;
-
-  // Keep max 30 lines
-  while (termOutput.children.length > 30) {
-    termOutput.removeChild(termOutput.firstChild);
-  }
-
-  setTimeout(loopRandomLines, Math.random() * 2000 + 1000);
+  termLog(lines[Math.floor(Math.random() * lines.length)]);
+  setTimeout(loopSimulatedLines, Math.random() * 2500 + 1500);
 }
 
 // ===== COPY CA =====
