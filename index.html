@@ -4,6 +4,30 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>$MM — The Marketmaker</title>
+
+<!-- SEO -->
+<meta name="description" content="He claims. He trades. He never sleeps. The first memecoin that market-makes itself. $MM on Solana.">
+<meta name="keywords" content="$MM, Marketmaker, Solana, memecoin, crypto, DeFi, pump.fun">
+<meta name="author" content="The Marketmaker">
+<meta name="theme-color" content="#030804">
+
+<!-- Open Graph (X/Discord/Telegram link previews) -->
+<meta property="og:title" content="$MM — The Marketmaker">
+<meta property="og:description" content="He claims. He trades. He never sleeps. The first memecoin that market-makes itself.">
+<meta property="og:image" content="1000042173.jpg">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="The Marketmaker">
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@marketmake23200">
+<meta name="twitter:title" content="$MM — The Marketmaker">
+<meta name="twitter:description" content="He claims. He trades. He never sleeps. The first memecoin that market-makes itself.">
+<meta name="twitter:image" content="1000042173.jpg">
+
+<!-- Favicon (inline SVG skull) -->
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💀</text></svg>">
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -787,9 +811,113 @@ section {
   93% { transform: translate(-3px, 2px); }
   95% { transform: translate(2px, -2px); }
 }
+/* ===== LOADING SCREEN ===== */
+#loader {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: #030804;
+  z-index: 99999;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  transition: opacity 0.5s, visibility 0.5s;
+}
+
+#loader.hidden {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.loader-skull {
+  font-size: 4rem;
+  animation: loaderPulse 1s ease-in-out infinite;
+  filter: drop-shadow(0 0 20px rgba(57, 255, 20, 0.5));
+}
+
+.loader-text {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.8rem;
+  color: var(--green-dim);
+  letter-spacing: 4px;
+  margin-top: 1rem;
+  animation: loaderPulse 1s ease-in-out infinite;
+}
+
+@keyframes loaderPulse {
+  0%, 100% { opacity: 0.3; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.05); }
+}
+
+/* ===== LIVE STATS BAR ===== */
+.stats-bar {
+  background: rgba(0, 0, 0, 0.6);
+  border-bottom: 1px solid rgba(57, 255, 20, 0.08);
+  padding: 0.6rem 2rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 2rem;
+  flex-wrap: wrap;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.75rem;
+  letter-spacing: 1px;
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.stat-label {
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+
+.stat-value {
+  color: var(--green);
+  font-weight: 600;
+}
+
+.stat-value.loading {
+  color: var(--text-dim);
+  animation: loaderPulse 1.5s ease-in-out infinite;
+}
+
+.stat-change {
+  font-size: 0.7rem;
+}
+
+.stat-change.up { color: var(--green); }
+.stat-change.down { color: var(--red); }
+
+.stat-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 6px var(--green);
+  animation: statDotPulse 2s ease-in-out infinite;
+}
+
+@keyframes statDotPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+@media (max-width: 768px) {
+  .stats-bar { gap: 1rem; padding: 0.5rem 1rem; font-size: 0.65rem; }
+}
 </style>
 </head>
 <body>
+
+<!-- LOADING SCREEN -->
+<div id="loader">
+  <div class="loader-skull">💀</div>
+  <div class="loader-text">INITIALIZING...</div>
+</div>
 
 <!-- NAV -->
 <nav class="nav">
@@ -826,6 +954,28 @@ section {
 <div class="ca-bar">
   <span class="ca-label">Contract Address:</span>
   <span class="ca-address" id="ca-display" onclick="navigator.clipboard.writeText(this.textContent)" title="Click to copy">XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX</span>
+</div>
+
+<!-- LIVE STATS BAR -->
+<div class="stats-bar" id="stats-bar">
+  <div class="stat-item">
+    <div class="stat-dot"></div>
+    <span class="stat-label">Price:</span>
+    <span class="stat-value loading" id="stat-price">—</span>
+    <span class="stat-change" id="stat-price-change"></span>
+  </div>
+  <div class="stat-item">
+    <span class="stat-label">MCap:</span>
+    <span class="stat-value loading" id="stat-mcap">—</span>
+  </div>
+  <div class="stat-item">
+    <span class="stat-label">24h Vol:</span>
+    <span class="stat-value loading" id="stat-volume">—</span>
+  </div>
+  <div class="stat-item">
+    <span class="stat-label">Holders:</span>
+    <span class="stat-value loading" id="stat-holders">—</span>
+  </div>
 </div>
 
 <!-- TERMINAL -->
@@ -1437,6 +1587,96 @@ document.querySelector('.ca-address').addEventListener('click', function() {
     this.style.color = '';
   }, 1500);
 });
+
+// ===== LOADING SCREEN =====
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    document.getElementById('loader').classList.add('hidden');
+  }, 1200);
+});
+
+// ===== LIVE STATS BAR =====
+function formatStatNum(n) {
+  if (n >= 1e9) return '$' + (n / 1e9).toFixed(2) + 'B';
+  if (n >= 1e6) return '$' + (n / 1e6).toFixed(2) + 'M';
+  if (n >= 1e3) return '$' + (n / 1e3).toFixed(1) + 'K';
+  return '$' + n.toFixed(2);
+}
+
+async function updateStats() {
+  const mint = MM_CONFIG.TOKEN_MINT;
+  if (!mint || mint.includes('PASTE_')) {
+    // Not live — show placeholder data
+    document.getElementById('stat-price').textContent = '$0.00001234';
+    document.getElementById('stat-price').classList.remove('loading');
+    document.getElementById('stat-mcap').textContent = '$12.3K';
+    document.getElementById('stat-mcap').classList.remove('loading');
+    document.getElementById('stat-volume').textContent = '$48.2K';
+    document.getElementById('stat-volume').classList.remove('loading');
+    document.getElementById('stat-holders').textContent = '—';
+    document.getElementById('stat-holders').classList.remove('loading');
+    return;
+  }
+
+  try {
+    const res = await fetch('https://api.dexscreener.com/latest/dex/tokens/' + mint);
+    const data = await res.json();
+    if (data.pairs && data.pairs.length > 0) {
+      const pair = data.pairs.sort((a, b) => (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0))[0];
+
+      // Price
+      const priceEl = document.getElementById('stat-price');
+      const usd = parseFloat(pair.priceUsd || '0');
+      priceEl.textContent = '$' + usd.toFixed(usd < 0.0001 ? 8 : usd < 0.01 ? 6 : 4);
+      priceEl.classList.remove('loading');
+
+      // Price change
+      const changeEl = document.getElementById('stat-price-change');
+      const change24h = pair.priceChange?.h24 || 0;
+      const isUp = change24h >= 0;
+      changeEl.textContent = (isUp ? '▲' : '▼') + ' ' + Math.abs(change24h).toFixed(1) + '%';
+      changeEl.className = 'stat-change ' + (isUp ? 'up' : 'down');
+
+      // Market cap
+      const mcapEl = document.getElementById('stat-mcap');
+      const mcap = pair.marketCap || pair.fdv || 0;
+      mcapEl.textContent = mcap > 0 ? formatStatNum(mcap) : '—';
+      mcapEl.classList.remove('loading');
+
+      // Volume
+      const volEl = document.getElementById('stat-volume');
+      const vol = pair.volume?.h24 || 0;
+      volEl.textContent = vol > 0 ? formatStatNum(vol) : '—';
+      volEl.classList.remove('loading');
+    }
+  } catch (e) {}
+
+  // Holders (via Helius DAS API)
+  try {
+    if (MM_CONFIG.HELIUS_KEY) {
+      const holderRes = await fetch(MM_CONFIG.RPC, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0', id: 1,
+          method: 'getTokenAccounts',
+          params: { mint: mint, limit: 1, page: 1 }
+        })
+      });
+      const holderData = await holderRes.json();
+      const holdersEl = document.getElementById('stat-holders');
+      if (holderData.result?.total_results) {
+        holdersEl.textContent = holderData.result.total_results.toLocaleString();
+      }
+      holdersEl.classList.remove('loading');
+    }
+  } catch (e) {}
+
+  setTimeout(updateStats, 30000);
+}
+
+// Start stats polling
+updateStats();
 </script>
 
 </body>
