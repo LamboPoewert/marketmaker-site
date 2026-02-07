@@ -799,7 +799,7 @@ section {
     <a href="#mechanism">MECHANISM</a>
     <a href="#tokenomics">TOKENOMICS</a>
     <a href="#terminal">TERMINAL</a>
-    <a href="#" class="btn-buy">BUY $MM</a>
+    <a href="#" id="link-buy-nav" class="btn-buy" target="_blank">BUY $MM</a>
   </div>
 </nav>
 
@@ -815,7 +815,7 @@ section {
     <h1 class="hero-title glitch" data-text="THE MARKETMAKER"><span class="dollar">$</span>THE MARKETMAKER</h1>
     <p class="hero-subtitle">He claims. He trades. He never sleeps.<br>The first memecoin that market-makes itself.</p>
     <div class="hero-cta">
-      <a href="#" class="btn-primary">BUY ON PUMP.FUN</a>
+      <a href="#" id="link-pumpfun" class="btn-primary" target="_blank">BUY ON PUMP.FUN</a>
       <a href="https://x.com/marketmake23200" target="_blank" class="btn-secondary">TWITTER / X →</a>
       <a href="#mechanism" class="btn-secondary">HOW IT WORKS →</a>
     </div>
@@ -825,7 +825,7 @@ section {
 <!-- CA BAR -->
 <div class="ca-bar">
   <span class="ca-label">Contract Address:</span>
-  <span class="ca-address" onclick="navigator.clipboard.writeText(this.textContent)" title="Click to copy">XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX</span>
+  <span class="ca-address" id="ca-display" onclick="navigator.clipboard.writeText(this.textContent)" title="Click to copy">XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX</span>
 </div>
 
 <!-- TERMINAL -->
@@ -961,9 +961,9 @@ section {
 <footer class="footer">
   <div class="footer-skull">💀</div>
   <div class="footer-links">
-    <a href="#">PUMP.FUN</a>
+    <a href="#" id="link-pumpfun-footer" target="_blank">PUMP.FUN</a>
     <a href="https://x.com/marketmake23200" target="_blank">TWITTER</a>
-    <a href="#">DEXSCREENER</a>
+    <a href="#" id="link-dexscreener-footer" target="_blank">DEXSCREENER</a>
   </div>
   <p class="footer-disclaimer">$MM is a memecoin with no intrinsic value or expectation of financial return. The Marketmaker is a fictional character. This is not financial advice. Trade at your own risk. The Marketmaker is always watching.</p>
 </footer>
@@ -1025,6 +1025,32 @@ const MM_CONFIG = {
   // Set IS_LIVE to true when the token is deployed and trading
   IS_LIVE: false,
 };
+
+// ── AUTO-LINK: Update all links and CA display from config ──
+(function() {
+  const mint = MM_CONFIG.TOKEN_MINT;
+  const isReal = mint && !mint.includes('PASTE_');
+
+  // Contract address display
+  const caDisplay = document.getElementById('ca-display');
+  if (caDisplay && isReal) caDisplay.textContent = mint;
+
+  // Pump.fun links
+  const pumpUrl = isReal ? 'https://pump.fun/coin/' + mint : '#';
+  const pumpHero = document.getElementById('link-pumpfun');
+  const pumpFooter = document.getElementById('link-pumpfun-footer');
+  if (pumpHero) pumpHero.href = pumpUrl;
+  if (pumpFooter) pumpFooter.href = pumpUrl;
+
+  // Nav buy button (same as pump.fun)
+  const buyNav = document.getElementById('link-buy-nav');
+  if (buyNav) buyNav.href = pumpUrl;
+
+  // DexScreener link
+  const dexUrl = isReal ? 'https://dexscreener.com/solana/' + mint : '#';
+  const dexFooter = document.getElementById('link-dexscreener-footer');
+  if (dexFooter) dexFooter.href = dexUrl;
+})();
 
 const termOutput = document.getElementById('terminal-output');
 const termStatus = document.getElementById('terminal-status');
